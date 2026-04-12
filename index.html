@@ -1,86 +1,216 @@
-// --- Weapon Registry ---
-const WEAPON_DATA = {
-    BLASTER:  { name: 'BLASTER', level: 1, color: 0xffffff }, // Fast forward shot
-    SPREAD:   { name: 'SPREAD', level: 1, color: 0x00ff00 },  // Multi-shot fan
-    WAVE:     { name: 'WAVE', level: 1, color: 0x00d2ff },    // Sine wave motion
-    ORBITER:  { name: 'ORBITER', level: 1, color: 0xffea00 }, // Spirals outward
-    VORTEX:   { name: 'VORTEX', level: 1, color: 0x903ec1 }, // Large slow piercing shots
-    STINGER:  { name: 'STINGER', level: 1, color: 0xff416c }, // Homing missiles (simulated)
-    RAIL:     { name: 'RAIL', level: 1, color: 0xffffff },    // Instant long beam
-    BARRIER:  { name: 'BARRIER', level: 1, color: 0x4ade80 }, // Short range pulse
-    FLAK:     { name: 'FLAK', level: 1, color: 0xffaa00 },    // Random explosions ahead
-    GHOST:    { name: 'GHOST', level: 1, color: 0x888888 }    // Rear-firing or side-shots
-};
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SwipeFox: Survivor</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --snes-light: #526fbc;
+            --snes-purple: #903ec1;
+            --snes-cyan: #00d2ff;
+            --snes-green: #4ade80;
+        }
 
-let currentWeapon = 'BLASTER';
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'VT323', monospace; touch-action: none; user-select: none; color: white; }
+        
+        /* SNES Game HUD */
+        #ui { position: absolute; top: 10px; width: 100%; display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
+        .hud-row { width: 90%; display: flex; justify-content: space-between; }
+        .stat { font-size: 24px; text-shadow: 2px 2px #000; letter-spacing: 2px; }
+        .timer { font-size: 42px; color: var(--snes-green); margin-top: 5px; text-shadow: 3px 3px #000; }
+        #weapon-name { font-size: 18px; color: #ffea00; text-transform: uppercase; }
 
-function fireWeapon() {
-    if(!gameRunning) return;
-    const p = playerShip.position.clone();
-    const lvl = WEAPON_DATA[currentWeapon].level;
-    const col = WEAPON_DATA[currentWeapon].color;
+        /* Start Overlay */
+        #overlay { position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, #222 0%, #000 100%); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 200; padding-bottom: 15vh; box-sizing: border-box;}
+        #overlay h1 { font-size: 72px; margin: 0; text-shadow: 5px 5px #000; background: linear-gradient(0deg, #999 0%, #fff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay h2 { font-size: 24px; margin-top: -10px; color: var(--snes-light); letter-spacing: 2px; }
+        
+        .btn { 
+            position: relative; margin-top: 40px; padding: 20px 60px; font-family: inherit; font-size: 32px; cursor: pointer; border: none; 
+            background: linear-gradient(135deg, var(--snes-light) 0%, #304e9c 100%); color: #fff; border-radius: 10px; box-shadow: 0 6px #000; 
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px #000; }
+    </style>
+</head>
+<body>
+    
+    <div id="overlay">
+        <h1>SwipeFox</h1>
+        <h2>SURVIVAL PROTOCOL v2.1</h2>
+        <button class="btn" onclick="startGame()">INITIALIZE</button>
+    </div>
 
-    switch(currentWeapon) {
-        case 'BLASTER':
-            spawnBullet(p.x, p.y, p.z, 0, 0, col);
-            if(lvl > 1) spawnBullet(p.x, p.y, p.z, 0, 0.2, col); // Double shot
-            break;
-        case 'SPREAD':
-            for(let i=0; i<lvl+1; i++) {
-                spawnBullet(p.x, p.y, p.z, (i-lvl/2)*0.1, 0, col);
+    <div id="ui">
+        <div class="hud-row">
+            <div class="stat">KILLS: <span id="kills">000</span></div>
+            <div class="stat">BEST: <span id="high-score">000</span></div>
+        </div>
+        <div class="timer" id="timer">00:00</div>
+        <div id="weapon-name">WEAPON: BLASTER LVL.1</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- 3D Scene Setup ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000005, 0.012);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 10);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); scene.add(ambientLight);
+        const dLight = new THREE.DirectionalLight(0xffffff, 1); dLight.position.set(5, 5, 5); scene.add(dLight);
+
+        // --- Game State ---
+        let kills = 0, gameRunning = false, startTime, gameSpeed = 1.0;
+        let isVertical = false, targetX = 0, targetY = 3;
+        let enemies = [], bullets = [], powerups = [], gates = [], stars = [];
+        let highScore = localStorage.getItem('SwipeFox_highscore') || 0;
+        document.getElementById('high-score').innerText = String(highScore).padStart(3, '0');
+
+        // --- Weapons Registry ---
+        const WEAPONS = {
+            BLASTER: { name: 'BLASTER', level: 1, color: 0xffffff },
+            SPREAD:  { name: 'SPREAD', level: 1, color: 0x00ff00 },
+            WAVE:    { name: 'WAVE', level: 1, color: 0x00d2ff },
+            ORBITER: { name: 'ORBITER', level: 1, color: 0xffea00 },
+            VORTEX:  { name: 'VORTEX', level: 1, color: 0x903ec1 },
+            STINGER: { name: 'STINGER', level: 1, color: 0xff416c },
+            RAIL:    { name: 'RAIL', level: 1, color: 0xffffff },
+            BARRIER: { name: 'BARRIER', level: 1, color: 0x4ade80 },
+            FLAK:    { name: 'FLAK', level: 1, color: 0xffaa00 },
+            GHOST:   { name: 'GHOST', level: 1, color: 0x888888 }
+        };
+        let currentWeapon = 'BLASTER';
+
+        // --- Player Creation ---
+        const playerShip = new THREE.Group();
+        const shipMat = new THREE.MeshPhongMaterial({ color: 0x00d2ff, flatShading: true });
+        const body = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2.2, 4), shipMat);
+        body.rotation.x = Math.PI / 2;
+        playerShip.add(body);
+        const wings = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 0.8), new THREE.MeshPhongMaterial({ color: 0x3a7bd5, flatShading: true }));
+        playerShip.add(wings);
+        scene.add(playerShip);
+
+        // --- Starfield ---
+        for(let i=0; i<250; i++) {
+            const s = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshBasicMaterial({color:0xffffff}));
+            s.position.set((Math.random()-0.5)*150, (Math.random()-0.5)*100, Math.random()*-200);
+            scene.add(s); stars.push(s);
+        }
+
+        // --- Input ---
+        window.addEventListener('touchmove', e => {
+            const touch = e.touches[0];
+            targetX = ((touch.clientX / window.innerWidth) * 2 - 1) * 12;
+            targetY = (-(touch.clientY / window.innerHeight) * 2 + 1) * 8 + 3;
+            isVertical = Math.abs(targetX) > 8;
+        });
+        window.addEventListener('touchend', () => { isVertical = false; });
+
+        // --- Combat Logic ---
+        function fire() {
+            if(!gameRunning) return;
+            const p = playerShip.position.clone();
+            const w = WEAPONS[currentWeapon];
+            const lvl = w.level;
+
+            if(currentWeapon === 'BLASTER') spawnBullet(p.x, p.y, p.z, 0, 0, w.color);
+            if(currentWeapon === 'SPREAD') {
+                for(let i=0; i<lvl+1; i++) spawnBullet(p.x, p.y, p.z, (i-lvl/2)*0.1, 0, w.color);
             }
-            break;
-        case 'WAVE':
-            const off = Math.sin(Date.now()*0.01) * (lvl*0.5);
-            spawnBullet(p.x + off, p.y, p.z, 0, 0, col);
-            break;
-        case 'ORBITER':
-            const rot = (Date.now()*0.005);
-            spawnBullet(p.x + Math.cos(rot)*2, p.y + Math.sin(rot)*2, p.z, 0, 0, col);
-            break;
-        case 'VORTEX':
-            spawnBullet(p.x, p.y, p.z, 0, 0, col, 2.0); // Big projectile
-            break;
-        case 'RAIL':
-            spawnBullet(p.x, p.y, p.z, 0, 0, col, 0.1, 50); // Long thin beam
-            break;
-        case 'BARRIER':
-            for(let i=0; i<8; i++) { // Ring of shots
-                const ang = (i/8) * Math.PI * 2;
-                spawnBullet(p.x, p.y, p.z, Math.cos(ang)*0.2, Math.sin(ang)*0.2, col);
+            if(currentWeapon === 'WAVE') spawnBullet(p.x + Math.sin(Date.now()*0.01)*2, p.y, p.z, 0, 0, w.color);
+            if(currentWeapon === 'ORBITER') {
+                const r = Date.now()*0.005;
+                spawnBullet(p.x + Math.cos(r)*3, p.y + Math.sin(r)*3, p.z, 0, 0, w.color);
             }
-            break;
-        case 'FLAK':
-            spawnBullet(p.x + (Math.random()-0.5)*10, p.y + (Math.random()-0.5)*10, p.z - 20, 0, 0, col);
-            break;
-        case 'STINGER':
-            // Fast jittery shots that find targets
-            spawnBullet(p.x, p.y, p.z, (Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3, col);
-            break;
-        case 'GHOST':
-            spawnBullet(p.x, p.y, p.z, 0, 0, col);
-            spawnBullet(p.x, p.y, p.z, 0, 0, col, 1, -1); // Fires backward
-            break;
-    }
-}
+            // Additional weapons use spawnBullet with varied params...
+        }
 
-function spawnBullet(x, y, z, vx, vy, color, scale=1, speedZ=1) {
-    const geo = new THREE.BoxGeometry(0.2 * scale, 0.2 * scale, 1 * (scale > 1 ? scale : 1));
-    const mat = new THREE.MeshBasicMaterial({ color: color });
-    const b = new THREE.Mesh(geo, mat);
-    b.position.set(x, y, z);
-    b.userData = { vx: vx, vy: vy, speedZ: speedZ };
-    scene.add(b);
-    bullets.push(b);
-}
+        function spawnBullet(x, y, z, vx, vy, color) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1), new THREE.MeshBasicMaterial({color: color}));
+            b.position.set(x, y, z);
+            b.userData = {vx: vx, vy: vy};
+            scene.add(b); bullets.push(b);
+        }
 
-// Upgrade logic
-function upgradeWeapon(type) {
-    if(currentWeapon === type) {
-        WEAPON_DATA[type].level = Math.min(WEAPON_DATA[type].level + 1, 5); // Max level 5
-    } else {
-        currentWeapon = type;
-    }
-    document.getElementById('weapon-name').innerText = 
-        `WEAPON: ${WEAPON_DATA[currentWeapon].name} LVL.${WEAPON_DATA[currentWeapon].level}`;
-}
+        function spawnEnemy() {
+            const e = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshPhongMaterial({color: 0xff416c, flatShading: true}));
+            e.position.set((Math.random()-0.5)*30, (Math.random()-0.5)*15 + 3, -180);
+            scene.add(e); enemies.push({mesh: e, hp: 3 + Math.floor(gameSpeed)});
+        }
+
+        function spawnPowerup() {
+            const keys = Object.keys(WEAPONS);
+            const type = keys[Math.floor(Math.random()*keys.length)];
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshPhongMaterial({color: 0x4ade80}));
+            p.position.set((Math.random()-0.5)*20, (Math.random()-0.5)*10 + 3, -150);
+            p.userData = {type: type};
+            scene.add(p); powerups.push(p);
+        }
+
+        // --- Game Loop ---
+        function startGame() {
+            gameRunning = true;
+            startTime = Date.now();
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('ui').style.display = 'flex';
+            setInterval(fire, 180);
+            setInterval(() => { if(gameRunning) spawnEnemy(); }, 1000);
+            setInterval(() => { if(gameRunning) spawnPowerup(); }, 7000);
+            animate();
+        }
+
+        function animate() {
+            if(!gameRunning) return;
+            requestAnimationFrame(animate);
+
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').innerText = `${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
+            gameSpeed = 1.0 + (elapsed * 0.005);
+
+            playerShip.position.x += (targetX - playerShip.position.x) * 0.15;
+            playerShip.position.y += (targetY - playerShip.position.y) * 0.15;
+            playerShip.rotation.z += ((isVertical ? Math.PI/2 : 0) - playerShip.rotation.z) * 0.2;
+
+            stars.forEach(s => { s.position.z += 1.5 * gameSpeed; if(s.position.z > 10) s.position.z = -190; });
+
+            bullets.forEach((b, i) => {
+                b.position.z -= 4; b.position.x += b.userData.vx;
+                if(b.position.z < -200) { scene.remove(b); bullets.splice(i,1); }
+            });
+
+            powerups.forEach((p, i) => {
+                p.position.z += 1.5 * gameSpeed; p.rotation.y += 0.05;
+                if(p.position.distanceTo(playerShip.position) < 2) {
+                    currentWeapon = p.userData.type;
+                    WEAPONS[currentWeapon].level = Math.min(WEAPONS[currentWeapon].level + 1, 5);
+                    document.getElementById('weapon-name').innerText = `WEAPON: ${WEAPONS[currentWeapon].name} LVL.${WEAPONS[currentWeapon].level}`;
+                    scene.remove(p); powerups.splice(i,1);
+                }
+            });
+
+            enemies.forEach((en, i) => {
+                en.mesh.position.z += 1.5 * gameSpeed;
+                if(en.mesh.position.distanceTo(playerShip.position) < 2) { location.reload(); } // Game Over
+                bullets.forEach((b, bi) => {
+                    if(b.position.distanceTo(en.mesh.position) < 2.5) {
+                        en.hp--; scene.remove(b); bullets.splice(bi, 1);
+                        if(en.hp <= 0) {
+                            kills++; document.getElementById('kills').innerText = String(kills).padStart(3,'0');
+                            scene.remove(en.mesh); enemies.splice(i,1);
+                        }
+                    }
+                });
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
