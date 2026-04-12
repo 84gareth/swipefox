@@ -1,0 +1,86 @@
+// --- Weapon Registry ---
+const WEAPON_DATA = {
+    BLASTER:  { name: 'BLASTER', level: 1, color: 0xffffff }, // Fast forward shot
+    SPREAD:   { name: 'SPREAD', level: 1, color: 0x00ff00 },  // Multi-shot fan
+    WAVE:     { name: 'WAVE', level: 1, color: 0x00d2ff },    // Sine wave motion
+    ORBITER:  { name: 'ORBITER', level: 1, color: 0xffea00 }, // Spirals outward
+    VORTEX:   { name: 'VORTEX', level: 1, color: 0x903ec1 }, // Large slow piercing shots
+    STINGER:  { name: 'STINGER', level: 1, color: 0xff416c }, // Homing missiles (simulated)
+    RAIL:     { name: 'RAIL', level: 1, color: 0xffffff },    // Instant long beam
+    BARRIER:  { name: 'BARRIER', level: 1, color: 0x4ade80 }, // Short range pulse
+    FLAK:     { name: 'FLAK', level: 1, color: 0xffaa00 },    // Random explosions ahead
+    GHOST:    { name: 'GHOST', level: 1, color: 0x888888 }    // Rear-firing or side-shots
+};
+
+let currentWeapon = 'BLASTER';
+
+function fireWeapon() {
+    if(!gameRunning) return;
+    const p = playerShip.position.clone();
+    const lvl = WEAPON_DATA[currentWeapon].level;
+    const col = WEAPON_DATA[currentWeapon].color;
+
+    switch(currentWeapon) {
+        case 'BLASTER':
+            spawnBullet(p.x, p.y, p.z, 0, 0, col);
+            if(lvl > 1) spawnBullet(p.x, p.y, p.z, 0, 0.2, col); // Double shot
+            break;
+        case 'SPREAD':
+            for(let i=0; i<lvl+1; i++) {
+                spawnBullet(p.x, p.y, p.z, (i-lvl/2)*0.1, 0, col);
+            }
+            break;
+        case 'WAVE':
+            const off = Math.sin(Date.now()*0.01) * (lvl*0.5);
+            spawnBullet(p.x + off, p.y, p.z, 0, 0, col);
+            break;
+        case 'ORBITER':
+            const rot = (Date.now()*0.005);
+            spawnBullet(p.x + Math.cos(rot)*2, p.y + Math.sin(rot)*2, p.z, 0, 0, col);
+            break;
+        case 'VORTEX':
+            spawnBullet(p.x, p.y, p.z, 0, 0, col, 2.0); // Big projectile
+            break;
+        case 'RAIL':
+            spawnBullet(p.x, p.y, p.z, 0, 0, col, 0.1, 50); // Long thin beam
+            break;
+        case 'BARRIER':
+            for(let i=0; i<8; i++) { // Ring of shots
+                const ang = (i/8) * Math.PI * 2;
+                spawnBullet(p.x, p.y, p.z, Math.cos(ang)*0.2, Math.sin(ang)*0.2, col);
+            }
+            break;
+        case 'FLAK':
+            spawnBullet(p.x + (Math.random()-0.5)*10, p.y + (Math.random()-0.5)*10, p.z - 20, 0, 0, col);
+            break;
+        case 'STINGER':
+            // Fast jittery shots that find targets
+            spawnBullet(p.x, p.y, p.z, (Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3, col);
+            break;
+        case 'GHOST':
+            spawnBullet(p.x, p.y, p.z, 0, 0, col);
+            spawnBullet(p.x, p.y, p.z, 0, 0, col, 1, -1); // Fires backward
+            break;
+    }
+}
+
+function spawnBullet(x, y, z, vx, vy, color, scale=1, speedZ=1) {
+    const geo = new THREE.BoxGeometry(0.2 * scale, 0.2 * scale, 1 * (scale > 1 ? scale : 1));
+    const mat = new THREE.MeshBasicMaterial({ color: color });
+    const b = new THREE.Mesh(geo, mat);
+    b.position.set(x, y, z);
+    b.userData = { vx: vx, vy: vy, speedZ: speedZ };
+    scene.add(b);
+    bullets.push(b);
+}
+
+// Upgrade logic
+function upgradeWeapon(type) {
+    if(currentWeapon === type) {
+        WEAPON_DATA[type].level = Math.min(WEAPON_DATA[type].level + 1, 5); // Max level 5
+    } else {
+        currentWeapon = type;
+    }
+    document.getElementById('weapon-name').innerText = 
+        `WEAPON: ${WEAPON_DATA[currentWeapon].name} LVL.${WEAPON_DATA[currentWeapon].level}`;
+}
