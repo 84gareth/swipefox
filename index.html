@@ -2,390 +2,560 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e1f">
 <title>SwipeFox</title>
-
-<link href="[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=VT323&display=swap)" rel="stylesheet">
-
 <style>
-    :root {
-        --snes-light: #526fbc;
-        --snes-purple: #903ec1;
-        --snes-cyan: #00d2ff;
-        --snes-green: #4ade80;
-        --snes-gold: #ffe08a;
-    }
-    body {
-        margin:0; padding:0;
-        background:black;
-        overflow:hidden;
-        font-family:'VT323', monospace;
-        color:white;
-        touch-action:none;
-        user-select:none;
-    }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0a0e1f; touch-action:none; overscroll-behavior:none;
+    font-family:'Segoe UI', system-ui, sans-serif; user-select:none; -webkit-user-select:none; }
+  #game { position:fixed; inset:0; }
+  canvas { display:block; }
 
-    /* Title Screen */
-    #overlay {
-        position:absolute;
-        width:100%;
-        height:100%;
-        background:radial-gradient(circle, #1a1a1a 0%, #000 100%);
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        z-index:10;
-    }
-    #title {
-        font-size:72px;
-        letter-spacing:4px;
-        background:linear-gradient(0deg, #bbb, #fff);
-        -webkit-background-clip:text;
-        -webkit-text-fill-color:transparent;
-        text-shadow:4px 4px #000;
-        margin:0;
-    }
-    #subtitle {
-        color:var(--snes-light);
-        font-size:24px;
-        margin-top:-10px;
-        letter-spacing:3px;
-    }
-    #start-btn {
-        padding:20px 60px;
-        margin-top:40px;
-        font-size:32px;
-        background:linear-gradient(135deg, var(--snes-light), #304e9c);
-        border:none;
-        border-radius:12px;
-        box-shadow:0 6px #000;
-        color:white;
-    }
-    #start-btn:active {
-        transform:translateY(4px);
-        box-shadow:0 2px #000;
-    }
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; }
+  #hud.active { display:block; }
+  #scoreBox { position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:14px;
+    color:#8fe8ff; font-weight:700; font-size:18px; letter-spacing:2px; text-shadow:0 0 8px #0af; }
+  #healthBar { position:absolute; top:calc(env(safe-area-inset-top,0px) + 14px); right:14px; width:110px; height:12px;
+    border:2px solid #8fe8ff; border-radius:6px; overflow:hidden; box-shadow:0 0 8px rgba(0,170,255,.5); }
+  #healthFill { height:100%; width:100%; background:linear-gradient(90deg,#00e5ff,#4dff88); transition:width .2s; }
+  #chargeRing { position:absolute; width:70px; height:70px; margin:-35px 0 0 -35px; border-radius:50%;
+    border:3px solid rgba(255,200,60,.9); box-shadow:0 0 16px rgba(255,180,0,.8), inset 0 0 12px rgba(255,180,0,.5);
+    display:none; transform:scale(.3); }
+  #progressBar { position:absolute; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); left:50%; transform:translateX(-50%);
+    width:55%; height:5px; background:rgba(140,230,255,.15); border-radius:3px; }
+  #progressFill { height:100%; width:0%; background:#8fe8ff; border-radius:3px; box-shadow:0 0 6px #0af; }
 
-    /* HUD */
-    #ui {
-        position:absolute;
-        top:10px;
-        width:100%;
-        display:none;
-        flex-direction:column;
-        align-items:center;
-        pointer-events:none;
-        z-index:5;
-    }
-    .hud-row {
-        width:90%;
-        display:flex;
-        justify-content:space-between;
-        font-size:24px;
-        text-shadow:2px 2px #000;
-    }
-    #timer {
-        margin-top:6px;
-        font-size:42px;
-        color:var(--snes-green);
-        text-shadow:3px 3px #000;
-    }
+  /* ---------- Screens ---------- */
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 30%, #16244d 0%, #0a0e1f 70%); z-index:10; }
+  .hidden { display:none !important; }
+
+  #logo { text-align:center; margin-bottom:8vh; animation:floaty 4s ease-in-out infinite; }
+  #logo .fox { font-size:min(17vw,84px); font-weight:900; font-style:italic; letter-spacing:-2px; line-height:.95;
+    background:linear-gradient(180deg,#fff 0%, #8fe8ff 35%, #2f7dff 70%, #7a3bff 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 #1a1f4a) drop-shadow(0 0 22px rgba(60,140,255,.7));
+    text-transform:uppercase; transform:perspective(300px) rotateX(18deg); }
+  #logo .sub { color:#ffb347; font-size:min(3.6vw,15px); letter-spacing:8px; margin-top:14px; text-transform:uppercase;
+    text-shadow:0 0 10px rgba(255,150,40,.8); }
+  @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  .btn { pointer-events:auto; padding:16px 54px; font-size:20px; font-weight:800; letter-spacing:3px; color:#0a0e1f;
+    background:linear-gradient(180deg,#aef1ff,#3fa9ff); border:none; border-radius:40px; text-transform:uppercase;
+    box-shadow:0 0 24px rgba(60,170,255,.6), 0 4px 0 #1a4a8a; cursor:pointer; }
+  .btn:active { transform:translateY(3px); box-shadow:0 0 24px rgba(60,170,255,.6), 0 1px 0 #1a4a8a; }
+  .hint { color:#6f86b8; font-size:13px; margin-top:26px; letter-spacing:1px; text-align:center; line-height:1.7; }
+  .bigtitle { font-size:min(11vw,54px); font-weight:900; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase; }
+  #endScreen .bigtitle { color:#8fe8ff; text-shadow:0 0 20px rgba(60,170,255,.8); }
+  #endScore { color:#ffb347; font-size:26px; font-weight:700; letter-spacing:2px; margin-bottom:6vh; text-shadow:0 0 12px rgba(255,150,40,.7); }
+  .stars { position:absolute; inset:0; overflow:hidden; z-index:-1; }
+  .stars i { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; opacity:.7; animation:twinkle 3s infinite; }
+  @keyframes twinkle { 0%,100%{opacity:.2} 50%{opacity:.9} }
 </style>
 </head>
 <body>
+<div id="game"></div>
 
-<div id="overlay">
-    <h1 id="title">SwipeFox</h1>
-    <h2 id="subtitle">SURVIVAL PROTOCOL</h2>
-    <button id="start-btn" onclick="startGame()">INITIALIZE</button>
+<div id="hud">
+  <div id="scoreBox">000000</div>
+  <div id="healthBar"><div id="healthFill"></div></div>
+  <div id="chargeRing"></div>
+  <div id="progressBar"><div id="progressFill"></div></div>
 </div>
 
-<div id="ui">
-    <div class="hud-row">
-        <div>KILLS: <span id="kills">000</span></div>
-        <div>BEST: <span id="best">000</span></div>
-    </div>
-    <div id="timer">00:00</div>
+<div id="startScreen" class="screen">
+  <div class="stars" id="stars1"></div>
+  <div id="logo">
+    <div class="fox">Swipe<br>Fox</div>
+    <div class="sub">Corneria Assault</div>
+  </div>
+  <button class="btn" id="startBtn">Launch</button>
+  <div class="hint">DRAG to fly &nbsp;·&nbsp; TAP to shoot<br>HOLD 1s &amp; release for charged shot</div>
 </div>
 
-<script src="[cdnjs.cloudflare.com](https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js)"></script>
+<div id="endScreen" class="screen hidden">
+  <div class="stars" id="stars2"></div>
+  <div class="bigtitle" id="endTitle">Mission Complete</div>
+  <div id="endScore">SCORE 000000</div>
+  <button class="btn" id="retryBtn">Fly Again</button>
+</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* ------------------------------------------
-   GAME STATE
------------------------------------------- */
-let kills = 0;
-let best = localStorage.getItem("swipefox_best") || 0;
-document.getElementById("best").innerText = String(best).padStart(3, "0");
+'use strict';
+/* ============ SwipeFox — Level 1 prototype ============ */
 
-let running = false;
-let startTime = 0;
-
-let shipSpeed = 1.0;
-let boostActive = false;
-let brakeActive = false;
-
-let targetX = 0;
-let targetY = 3;
-let isVertical = false;
-
-/* ------------------------------------------
-   THREE.JS INITIALIZATION
------------------------------------------- */
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000010, 0.018);
-
-const cam = new THREE.PerspectiveCamera(75,
-    window.innerWidth / window.innerHeight, 0.1, 1000);
-
-cam.position.set(0, 2, 12);
+// ---------- Basic setup ----------
+const W = () => window.innerWidth, H = () => window.innerHeight;
 const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W(), H());
+document.getElementById('game').appendChild(renderer.domElement);
 
-/* Lighting */
-scene.add(new THREE.AmbientLight(0xffffff, 1.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(6, 10, 10);
-scene.add(dirLight);
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x9fd4ff, 60, 320);
+scene.background = new THREE.Color(0x9fd4ff);
 
-/* ------------------------------------------
-   PLAYER SHIP (Flat‑shaded, SNES style)
------------------------------------------- */
-const shipGroup = new THREE.Group();
+const camera = new THREE.PerspectiveCamera(70, W()/H(), 0.1, 500);
+camera.position.set(0, 4, 12);
 
-const bodyMat = new THREE.MeshPhongMaterial({ color:0x00d2ff, flatShading:true });
-const body = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2.5, 4), bodyMat);
-body.rotation.x = Math.PI / 2;
-shipGroup.add(body);
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(20, 40, 10);
+scene.add(sun, new THREE.AmbientLight(0xa0c4ff, 0.7));
 
-const wings = new THREE.Mesh(
-    new THREE.BoxGeometry(3.2, 0.12, 0.9),
-    new THREE.MeshPhongMaterial({ color:0x3a7bd5, flatShading:true })
-);
-shipGroup.add(wings);
+// ---------- Play area (ship moves within this box in front of camera) ----------
+const AREA = { x: 7, yMin: 0.8, yMax: 11 };
 
-scene.add(shipGroup);
+// ---------- Player ship (stylised arwing-like, original colours) ----------
+function makeShip() {
+  const g = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color:0xf2f4f8, metalness:.4, roughness:.35 });
+  const teal  = new THREE.MeshStandardMaterial({ color:0x0fb8a8, metalness:.5, roughness:.3 });
+  const orange= new THREE.MeshStandardMaterial({ color:0xff7a1a, metalness:.3, roughness:.4 });
+  const dark  = new THREE.MeshStandardMaterial({ color:0x1c2333, metalness:.6, roughness:.3 });
 
-/* ------------------------------------------
-   STARFIELD
------------------------------------------- */
-const stars = [];
-for (let i=0; i<250; i++) {
-    const s = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08),
-        new THREE.MeshBasicMaterial({ color:0xffffff })
-    );
-    s.position.set(
-        (Math.random()-0.5)*200,
-        (Math.random()-0.5)*100,
-        Math.random()*-300
-    );
-    scene.add(s);
-    stars.push(s);
+  // fuselage
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.4, 6), white);
+  body.rotation.x = -Math.PI/2; g.add(body);
+  // cockpit
+  const cock = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10),
+    new THREE.MeshStandardMaterial({ color:0x33e0ff, metalness:.8, roughness:.1 }));
+  cock.position.set(0, 0.3, -0.2); cock.scale.z = 1.6; g.add(cock);
+  // wings
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.09, 1.1), teal);
+    wing.position.set(s*1.45, -0.08, 0.5);
+    wing.rotation.z = s * 0.28; g.add(wing);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.85, 0.9), orange);
+    tip.position.set(s*2.65, 0.28, 0.5); tip.rotation.z = s*0.28; g.add(tip);
+    const eng = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.9, 8), dark);
+    eng.rotation.x = Math.PI/2; eng.position.set(s*0.55, -0.12, 1.3); g.add(eng);
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(0.16, 10),
+      new THREE.MeshBasicMaterial({ color:0x66d9ff }));
+    glow.position.set(s*0.55, -0.12, 1.76); g.add(glow);
+  }
+  return g;
+}
+const ship = makeShip();
+ship.position.set(0, 4, 0);
+scene.add(ship);
+
+// target position driven by finger, ship eases toward it (inertia)
+const target = new THREE.Vector3(0, 4, 0);
+const vel = new THREE.Vector3();
+
+// ---------- Reticule (square, semi-transparent, projected ahead of ship) ----------
+function makeReticule() {
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color:0x66ff99, transparent:true, opacity:0.65 });
+  const s = 1.1, c = 0.4;
+  const pts = [];
+  // four corner brackets
+  for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]) {
+    pts.push([sx*s, sy*s - sy*c, 0],[sx*s, sy*s, 0],[sx*s - sx*c, sy*s, 0]);
+  }
+  for (let i = 0; i < pts.length; i += 3) {
+    const geo = new THREE.BufferGeometry().setFromPoints(pts.slice(i, i+3).map(p => new THREE.Vector3(...p)));
+    g.add(new THREE.Line(geo, mat));
+  }
+  const inner = new THREE.Mesh(new THREE.PlaneGeometry(s*1.5, s*1.5),
+    new THREE.MeshBasicMaterial({ color:0x66ff99, transparent:true, opacity:0.07, side:THREE.DoubleSide }));
+  g.add(inner);
+  return g;
+}
+const reticule = makeReticule();
+scene.add(reticule);
+const RETICULE_DIST = 26;
+
+// ---------- Ground & scenery (Corneria-ish planet) ----------
+const groundMat = new THREE.MeshStandardMaterial({ color:0x4a9e55, roughness:.9 });
+const waterMat  = new THREE.MeshStandardMaterial({ color:0x2f7dd4, roughness:.4, metalness:.2 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400, 1, 1), groundMat);
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.5;
+scene.add(ground);
+
+// scenery pool: simple low-poly buildings/rocks/trees scrolling toward player
+const scenery = [];
+const sceneryMats = [
+  new THREE.MeshStandardMaterial({ color:0x8b95a8, roughness:.7 }),
+  new THREE.MeshStandardMaterial({ color:0x6b7688, roughness:.7 }),
+  new THREE.MeshStandardMaterial({ color:0x3d7a45, roughness:.9 }),
+  new THREE.MeshStandardMaterial({ color:0xb0a58e, roughness:.9 }),
+];
+function spawnScenery(z) {
+  const kind = Math.random();
+  let m;
+  if (kind < 0.45) { // building
+    const h = 2 + Math.random()*7;
+    m = new THREE.Mesh(new THREE.BoxGeometry(1.5+Math.random()*2, h, 1.5+Math.random()*2), sceneryMats[Math.random()<.5?0:1]);
+    m.position.y = h/2 - 0.5;
+  } else if (kind < 0.75) { // tree
+    m = new THREE.Group();
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(.15,.2,1.2,6), sceneryMats[3]); t.position.y=.3;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(.9, 2, 7), sceneryMats[2]); c.position.y=1.8;
+    m.add(t,c);
+  } else { // rock
+    m = new THREE.Mesh(new THREE.DodecahedronGeometry(.8+Math.random()*.9), sceneryMats[3]);
+    m.position.y = 0.2;
+  }
+  const side = Math.random() < .5 ? -1 : 1;
+  m.position.x = side * (9 + Math.random()*22);
+  m.position.z = z;
+  scene.add(m); scenery.push(m);
+}
+for (let i = 0; i < 40; i++) spawnScenery(-Math.random()*300);
+
+// a few clouds
+const cloudMat = new THREE.MeshStandardMaterial({ color:0xffffff, transparent:true, opacity:.85, roughness:1 });
+for (let i = 0; i < 10; i++) {
+  const c = new THREE.Group();
+  for (let j = 0; j < 3; j++) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(1.2+Math.random(), 8, 6), cloudMat);
+    b.position.set(j*1.4-1.4, Math.random()*.5, Math.random());
+    c.add(b);
+  }
+  c.position.set((Math.random()-.5)*80, 14+Math.random()*8, -Math.random()*300);
+  scene.add(c); scenery.push(c);
 }
 
-/* ------------------------------------------
-   ENEMY SYSTEM
------------------------------------------- */
+// ---------- Lasers ----------
+const lasers = [];
+const laserGeo = new THREE.CylinderGeometry(0.07, 0.07, 2.2, 6);
+const laserMat = new THREE.MeshBasicMaterial({ color:0x3dff5e });
+const chargeMat = new THREE.MeshBasicMaterial({ color:0x66c8ff });
+
+function fire(charged) {
+  const m = charged
+    ? new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), chargeMat)
+    : new THREE.Mesh(laserGeo, laserMat);
+  if (!charged) m.rotation.x = Math.PI/2;
+  m.position.copy(ship.position); m.position.z -= 2;
+  // aim at reticule point
+  const dir = new THREE.Vector3().copy(reticule.position).sub(m.position).normalize();
+  m.userData = { dir, charged, life: 2 };
+  scene.add(m); lasers.push(m);
+  if (charged) { // outer glow shell
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10),
+      new THREE.MeshBasicMaterial({ color:0x66c8ff, transparent:true, opacity:.35 }));
+    m.add(glow);
+  }
+}
+
+// ---------- Enemies ----------
 const enemies = [];
-
-function spawnEnemy() {
-    const geo = new THREE.OctahedronGeometry(1.3);
-    const mat = new THREE.MeshPhongMaterial({ color:0xff416c, flatShading:true });
-    const e = new THREE.Mesh(geo, mat);
-
-    e.position.set(
-        (Math.random()-0.5)*30,
-        (Math.random()-0.5)*14 + 3,
-        -200
-    );
-    e.userData = { hp: 3 + Math.floor(timeAlive()*0.5) };
-
-    scene.add(e);
-    enemies.push(e);
+const eMats = {
+  red:  new THREE.MeshStandardMaterial({ color:0xd94040, metalness:.5, roughness:.4 }),
+  grey: new THREE.MeshStandardMaterial({ color:0x9aa3b5, metalness:.6, roughness:.4 }),
+  purp: new THREE.MeshStandardMaterial({ color:0x8a4dd9, metalness:.5, roughness:.4 }),
+  dark: new THREE.MeshStandardMaterial({ color:0x2a3040, metalness:.6, roughness:.5 }),
+};
+function makeEnemy(type) {
+  const g = new THREE.Group();
+  if (type === 0) { // dart fighter
+    const b = new THREE.Mesh(new THREE.ConeGeometry(.5, 2, 4), eMats.red);
+    b.rotation.x = Math.PI/2; g.add(b);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(2.4, .08, .7), eMats.dark);
+    g.add(w);
+    g.userData.hp = 1; g.userData.score = 100;
+  } else if (type === 1) { // saucer
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.9, 12, 8), eMats.grey);
+    b.scale.y = .4; g.add(b);
+    const d = new THREE.Mesh(new THREE.SphereGeometry(.4, 10, 8), eMats.purp);
+    d.position.y = .25; g.add(d);
+    g.userData.hp = 2; g.userData.score = 200;
+  } else { // heavy cube drone
+    const b = new THREE.Mesh(new THREE.BoxGeometry(1.3,1.3,1.3), eMats.dark);
+    g.add(b);
+    const c = new THREE.Mesh(new THREE.OctahedronGeometry(.55), eMats.purp);
+    g.add(c); g.userData.spin = c;
+    g.userData.hp = 3; g.userData.score = 300;
+  }
+  g.userData.type = type;
+  g.userData.t = Math.random()*Math.PI*2;
+  g.userData.baseX = (Math.random()-.5)*AREA.x*1.6;
+  g.userData.baseY = AREA.yMin + Math.random()*(AREA.yMax-AREA.yMin);
+  g.position.set(g.userData.baseX, g.userData.baseY, -180);
+  return g;
 }
 
-/* ------------------------------------------
-   BULLETS
------------------------------------------- */
-const bullets = [];
-function fireBullet() {
-    if (!running) return;
-
-    const b = new THREE.Mesh(
-        new THREE.BoxGeometry(0.25,0.25,1),
-        new THREE.MeshBasicMaterial({ color:0xffffff })
-    );
-    b.position.copy(shipGroup.position);
-    bullets.push(b);
-    scene.add(b);
+// ---------- Explosions (simple expanding particles) ----------
+const booms = [];
+function explode(pos, big) {
+  const n = big ? 22 : 12;
+  const geo = new THREE.SphereGeometry(big?.22:.14, 6, 5);
+  const mat = new THREE.MeshBasicMaterial({ color: big?0x66c8ff:0xffa030, transparent:true, opacity:1 });
+  const g = new THREE.Group();
+  for (let i = 0; i < n; i++) {
+    const p = new THREE.Mesh(geo, mat.clone());
+    p.userData.v = new THREE.Vector3((Math.random()-.5), (Math.random()-.5), (Math.random()-.5)).normalize()
+      .multiplyScalar(6 + Math.random()*8);
+    g.add(p);
+  }
+  g.position.copy(pos); g.userData.life = 0.6;
+  scene.add(g); booms.push(g);
 }
 
-/* Auto-fire */
-setInterval(() => fireBullet(), 200);
+// ---------- Audio (tiny synth, no assets) ----------
+let AC = null;
+function beep(freq, dur, type, vol, slide) {
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, AC.currentTime + dur);
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+  o.connect(g).connect(AC.destination);
+  o.start(); o.stop(AC.currentTime + dur);
+}
+const sfx = {
+  laser: () => beep(880, .12, 'square', .12, 220),
+  charge:() => beep(180, .5, 'sawtooth', .1, 900),
+  boom:  () => beep(120, .3, 'sawtooth', .2, 40),
+  hit:   () => beep(200, .2, 'square', .18, 60),
+};
 
-/* ------------------------------------------
-   INPUT: DRAG + SWIPES
------------------------------------------- */
-let touchStartY = 0;
-let lastTap = 0;
+// ---------- Game state ----------
+const LEVEL_TIME = 60;
+let state = 'menu'; // menu | play | end
+let score = 0, health = 100, elapsed = 0;
+let spawnTimer = 0;
 
-window.addEventListener("touchstart", e=>{
-    touchStartY = e.touches[0].clientY;
-    let t = Date.now();
-    if (t - lastTap < 250) doBarrelRoll();
-    lastTap = t;
-});
+const $ = id => document.getElementById(id);
+const scoreBox = $('scoreBox'), healthFill = $('healthFill'), progressFill = $('progressFill');
+const chargeRing = $('chargeRing');
 
-window.addEventListener("touchmove", e=>{
-    const t = e.touches[0];
+function setScore(v) { score = v; scoreBox.textContent = String(v).padStart(6,'0'); }
 
-    targetX = ((t.clientX / window.innerWidth) * 2 - 1) * 12;
-    targetY = (-(t.clientY / window.innerHeight) * 2 + 1) * 8 + 3;
+// ---------- Input ----------
+let pointer = { down:false, x:0, y:0, downTime:0, moved:false, charging:false };
+const CHARGE_TIME = 1.0, TAP_MAX_MS = 220, TAP_MAX_MOVE = 14;
 
-    isVertical = Math.abs(targetX) > 8;
-});
-
-window.addEventListener("touchend", e=>{
-    isVertical = false;
-    boostActive = false;
-    brakeActive = false;
-});
-
-/* SPEED CONTROL */
-window.addEventListener("touchend", e=>{
-    const dy = e.changedTouches[0].clientY - touchStartY;
-
-    if (dy < -60) activateBoost();
-    if (dy > 60) activateBrake();
-});
-
-/* ------------------------------------------
-   BOOST / BRAKE
------------------------------------------- */
-function activateBoost() {
-    boostActive = true;
-    shipSpeed = 2.5;
-    setTimeout(()=>{ boostActive=false; shipSpeed=1.0; }, 3000);
+function screenToWorld(px, py) {
+  // map screen to play area; ship sits offset below finger so it isn't covered
+  const nx = (px / W()) * 2 - 1;
+  const ny = 1 - (py / H()) * 2;
+  return {
+    x: nx * AREA.x,
+    y: THREE.MathUtils.clamp(((ny + 1) / 2) * (AREA.yMax - AREA.yMin) + AREA.yMin, AREA.yMin, AREA.yMax)
+  };
 }
 
-function activateBrake() {
-    brakeActive = true;
-    shipSpeed = 0.4;
-    setTimeout(()=>{ brakeActive=false; shipSpeed=1.0; }, 3000);
+function onDown(e) {
+  if (state !== 'play') return;
+  const t = e.touches ? e.touches[0] : e;
+  pointer.down = true; pointer.moved = false; pointer.charging = false;
+  pointer.x = t.clientX; pointer.y = t.clientY;
+  pointer.sx = t.clientX; pointer.sy = t.clientY;
+  pointer.downTime = performance.now();
+  const w = screenToWorld(t.clientX, t.clientY);
+  target.x = w.x; target.y = w.y;
 }
-
-/* ------------------------------------------
-   BARREL ROLL (visual only for now)
------------------------------------------- */
-function doBarrelRoll() {
-    // Placeholder animation
-    shipGroup.rotation.z += Math.PI * 2;
+function onMove(e) {
+  if (!pointer.down || state !== 'play') return;
+  const t = e.touches ? e.touches[0] : e;
+  pointer.x = t.clientX; pointer.y = t.clientY;
+  if (Math.hypot(t.clientX-pointer.sx, t.clientY-pointer.sy) > TAP_MAX_MOVE) pointer.moved = true;
+  const w = screenToWorld(t.clientX, t.clientY);
+  target.x = w.x; target.y = w.y;
 }
-
-/* ------------------------------------------
-   UTILS
------------------------------------------- */
-function timeAlive() {
-    return (Date.now() - startTime) / 1000;
+function onUp() {
+  if (!pointer.down || state !== 'play') { pointer.down = false; return; }
+  const held = (performance.now() - pointer.downTime) / 1000;
+  if (pointer.charging && held >= CHARGE_TIME) {
+    fire(true); sfx.boom();
+  } else if (!pointer.moved && held*1000 < TAP_MAX_MS) {
+    fire(false); sfx.laser();
+  }
+  pointer.down = false; pointer.charging = false;
+  chargeRing.style.display = 'none';
 }
+addEventListener('touchstart', onDown, {passive:true});
+addEventListener('touchmove', onMove, {passive:true});
+addEventListener('touchend', onUp);
+addEventListener('mousedown', onDown);
+addEventListener('mousemove', onMove);
+addEventListener('mouseup', onUp);
 
-/* ------------------------------------------
-   GAME LOOP
------------------------------------------- */
-function animate() {
-    if (!running) return;
-    requestAnimationFrame(animate);
-
-    /* Timer */
-    const t = timeAlive();
-    const mm = String(Math.floor(t/60)).padStart(2,'0');
-    const ss = String(Math.floor(t%60)).padStart(2,'0');
-    document.getElementById("timer").innerText = mm + ":" + ss;
-
-    const speedScale = shipSpeed + t * 0.005;
-
-    /* Move Ship */
-    shipGroup.position.x += (targetX - shipGroup.position.x) * 0.15;
-    shipGroup.position.y += (targetY - shipGroup.position.y) * 0.15;
-
-    shipGroup.rotation.z += ((isVertical ? Math.PI/2 : 0) - shipGroup.rotation.z) * 0.2;
-
-    /* Stars */
-    stars.forEach(s=>{
-        s.position.z += 1.5 * speedScale;
-        if (s.position.z > 10) s.position.z = -300;
-    });
-
-    /* Bullets */
-    bullets.forEach((b,i)=>{
-        b.position.z -= 6;
-        if (b.position.z < -400) {
-            scene.remove(b);
-            bullets.splice(i,1);
-        }
-    });
-
-    /* Enemies */
-    enemies.forEach((e,i)=>{
-        e.position.z += 1.5 * speedScale;
-
-        if (e.position.distanceTo(shipGroup.position) < 2) {
-            gameOver();
-        }
-
-        bullets.forEach((b,bi)=>{
-            if (b.position.distanceTo(e.position) < 2) {
-                e.userData.hp--;
-                scene.remove(b);
-                bullets.splice(bi,1);
-
-                if (e.userData.hp <= 0) {
-                    scene.remove(e);
-                    enemies.splice(i,1);
-                    kills++;
-                    document.getElementById("kills").innerText =
-                      String(kills).padStart(3,'0');
-                }
-            }
-        });
-    });
-
-    renderer.render(scene, cam);
+// ---------- Screens ----------
+function makeStars(id) {
+  const el = $(id);
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('i');
+    s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
+    s.style.animationDelay = Math.random()*3+'s';
+    el.appendChild(s);
+  }
 }
+makeStars('stars1'); makeStars('stars2');
 
-/* ------------------------------------------
-   SPAWN LOOP
------------------------------------------- */
-setInterval(()=>{ if (running) spawnEnemy(); }, 1000);
-
-/* ------------------------------------------
-   START + END
------------------------------------------- */
 function startGame() {
-    running = true;
-    kills = 0;
-
-    document.getElementById("overlay").style.display = "none";
-    document.getElementById("ui").style.display = "flex";
-
-    startTime = Date.now();
-    animate();
+  if (!AC) { try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} }
+  // reset
+  setScore(0); health = 100; elapsed = 0; spawnTimer = 0;
+  healthFill.style.width = '100%'; progressFill.style.width = '0%';
+  for (const e of enemies) scene.remove(e); enemies.length = 0;
+  for (const l of lasers) scene.remove(l); lasers.length = 0;
+  ship.position.set(0, 4, 0); target.set(0, 4, 0); vel.set(0,0,0);
+  $('startScreen').classList.add('hidden');
+  $('endScreen').classList.add('hidden');
+  $('hud').classList.add('active');
+  state = 'play';
+  localStorage.setItem('swipefox_played', '1');
 }
+function endGame(win) {
+  state = 'end';
+  $('hud').classList.remove('active');
+  $('endTitle').textContent = win ? 'Mission Complete' : 'Ship Down';
+  const best = Math.max(score, +(localStorage.getItem('swipefox_best')||0));
+  localStorage.setItem('swipefox_best', best);
+  $('endScore').textContent = `SCORE ${String(score).padStart(6,'0')}  ·  BEST ${String(best).padStart(6,'0')}`;
+  $('endScreen').classList.remove('hidden');
+}
+$('startBtn').addEventListener('click', startGame);
+$('retryBtn').addEventListener('click', startGame);
 
-function gameOver() {
-    running = false;
+// ---------- Main loop ----------
+const FORWARD_SPEED = 38;
+let last = performance.now();
 
-    if (kills > best) {
-        best = kills;
-        localStorage.setItem("swipefox_best", best);
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min((now - last)/1000, 0.05); last = now;
+
+  if (state === 'play') {
+    elapsed += dt;
+    progressFill.style.width = Math.min(elapsed/LEVEL_TIME*100, 100) + '%';
+    if (elapsed >= LEVEL_TIME) endGame(true);
+
+    // charge indicator
+    if (pointer.down) {
+      const held = (now - pointer.downTime)/1000;
+      if (held > 0.25) {
+        pointer.charging = true;
+        chargeRing.style.display = 'block';
+        chargeRing.style.left = pointer.x+'px'; chargeRing.style.top = pointer.y+'px';
+        const p = Math.min(held/CHARGE_TIME, 1);
+        chargeRing.style.transform = `scale(${0.3+p*0.7})`;
+        chargeRing.style.borderColor = p>=1 ? 'rgba(120,220,255,.95)' : 'rgba(255,200,60,.9)';
+        chargeRing.style.boxShadow = p>=1 ? '0 0 22px rgba(80,200,255,.9)' : '0 0 16px rgba(255,180,0,.8)';
+      }
     }
 
-    location.reload();
+    // ship inertia — spring toward target
+    const ax = (target.x - ship.position.x) * 26 - vel.x * 8;
+    const ay = (target.y - ship.position.y) * 26 - vel.y * 8;
+    vel.x += ax*dt; vel.y += ay*dt;
+    ship.position.x += vel.x*dt; ship.position.y += vel.y*dt;
+    ship.position.x = THREE.MathUtils.clamp(ship.position.x, -AREA.x, AREA.x);
+    ship.position.y = THREE.MathUtils.clamp(ship.position.y, AREA.yMin, AREA.yMax);
+    // banking
+    ship.rotation.z = THREE.MathUtils.clamp(-vel.x*0.06, -0.9, 0.9);
+    ship.rotation.x = THREE.MathUtils.clamp(vel.y*0.03, -0.4, 0.4);
+
+    // reticule sits ahead of ship
+    reticule.position.set(ship.position.x*1.35, ship.position.y*1.15, ship.position.z - RETICULE_DIST);
+    reticule.rotation.z += dt*0.5;
+
+    // camera gently follows
+    camera.position.x += (ship.position.x*0.35 - camera.position.x)*3*dt;
+    camera.position.y += ((ship.position.y*0.3+3.2) - camera.position.y)*3*dt;
+    camera.lookAt(ship.position.x*0.5, ship.position.y*0.6+1, ship.position.z-30);
+
+    // scenery scroll
+    for (const s of scenery) {
+      s.position.z += FORWARD_SPEED*dt;
+      if (s.position.z > 20) { s.position.z = -300 - Math.random()*40; if (s.position.y < 13) s.position.x = (Math.random()<.5?-1:1)*(9+Math.random()*22); }
+    }
+
+    // spawn enemies
+    spawnTimer -= dt;
+    if (spawnTimer <= 0 && elapsed < LEVEL_TIME - 4) {
+      spawnTimer = 0.9 + Math.random()*0.9;
+      const e = makeEnemy(Math.floor(Math.random()*3));
+      scene.add(e); enemies.push(e);
+    }
+
+    // update enemies
+    for (let i = enemies.length-1; i >= 0; i--) {
+      const e = enemies[i];
+      e.userData.t += dt;
+      e.position.z += (FORWARD_SPEED*0.55)*dt + 14*dt; // approach player
+      const ty = e.userData.type;
+      if (ty === 0) e.position.x = e.userData.baseX + Math.sin(e.userData.t*2)*3;
+      if (ty === 1) e.position.y = e.userData.baseY + Math.sin(e.userData.t*3)*1.6;
+      if (ty === 2 && e.userData.spin) e.userData.spin.rotation.y += dt*3;
+      e.lookAt(ship.position);
+
+      // collide with player
+      if (e.position.distanceTo(ship.position) < 1.8) {
+        explode(e.position, false); sfx.hit();
+        scene.remove(e); enemies.splice(i,1);
+        health -= 18; healthFill.style.width = Math.max(health,0)+'%';
+        if (health <= 0) { explode(ship.position, true); endGame(false); }
+        continue;
+      }
+      if (e.position.z > 15) { scene.remove(e); enemies.splice(i,1); }
+    }
+
+    // update lasers & hits
+    for (let i = lasers.length-1; i >= 0; i--) {
+      const l = lasers[i];
+      const sp = l.userData.charged ? 60 : 110;
+      l.position.addScaledVector(l.userData.dir, sp*dt);
+      if (!l.userData.charged) l.lookAt(l.position.clone().add(l.userData.dir));
+      if (!l.userData.charged) l.rotateX(Math.PI/2);
+      l.userData.life -= dt;
+      let hit = false;
+      const hitR = l.userData.charged ? 1.4 : 1.1;
+      for (let j = enemies.length-1; j >= 0; j--) {
+        const e = enemies[j];
+        if (l.position.distanceTo(e.position) < hitR) {
+          hit = true;
+          const dmg = l.userData.charged ? 3 : 1;
+          // AOE for charged
+          if (l.userData.charged) {
+            for (let k = enemies.length-1; k >= 0; k--) {
+              const e2 = enemies[k];
+              if (e2 !== e && e2.position.distanceTo(l.position) < 5) {
+                e2.userData.hp -= 2;
+                if (e2.userData.hp <= 0) { explode(e2.position,false); setScore(score+e2.userData.score); sfx.boom(); scene.remove(e2); enemies.splice(k,1); if (k<j) j--; }
+              }
+            }
+          }
+          e.userData.hp -= dmg;
+          if (e.userData.hp <= 0) {
+            explode(e.position, l.userData.charged); setScore(score + e.userData.score); sfx.boom();
+            scene.remove(e); enemies.splice(j,1);
+          } else { sfx.hit(); }
+          break;
+        }
+      }
+      if (hit || l.userData.life <= 0) { scene.remove(l); lasers.splice(i,1); }
+    }
+  }
+
+  // explosions always animate
+  for (let i = booms.length-1; i >= 0; i--) {
+    const b = booms[i]; b.userData.life -= dt;
+    for (const p of b.children) {
+      p.position.addScaledVector(p.userData.v, dt);
+      p.material.opacity = Math.max(b.userData.life/0.6, 0);
+    }
+    if (b.userData.life <= 0) { scene.remove(b); booms.splice(i,1); }
+  }
+
+  renderer.render(scene, camera);
 }
+requestAnimationFrame(tick);
+
+addEventListener('resize', () => {
+  camera.aspect = W()/H(); camera.updateProjectionMatrix();
+  renderer.setSize(W(), H());
+});
 </script>
 </body>
 </html>
