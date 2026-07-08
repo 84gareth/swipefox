@@ -133,6 +133,10 @@
   .med.on{ filter:none; opacity:1; text-shadow:0 0 6px currentColor; }
   #tutOverlay{ position:fixed; left:0; right:0; bottom:16%; z-index:8; display:none; flex-direction:column; align-items:center; gap:12px; pointer-events:none; text-align:center; padding:0 20px; }
   #tutText{ color:#fff; font-weight:800; font-size:17px; letter-spacing:.5px; line-height:1.4; text-shadow:0 0 12px rgba(0,0,0,.8); background:rgba(20,10,40,.6); padding:12px 18px; border-radius:12px; border:1px solid rgba(255,255,255,.22); max-width:330px; }
+  #tutDone{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; pointer-events:none; }
+  .tutDoneCard{ pointer-events:auto; background:linear-gradient(180deg,rgba(20,44,66,.95),rgba(10,20,40,.95)); border:1px solid #2ff0ff; clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px); box-shadow:0 0 34px rgba(47,240,255,.45); padding:26px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; }
+  .tdTitle{ font-family:'Orbitron',sans-serif; font-weight:900; letter-spacing:3px; color:#eafffb; text-shadow:0 0 16px rgba(47,240,255,.9); font-size:22px; }
+  .tdSub{ color:#bfe8ff; margin:8px 0 16px; letter-spacing:1px; }
   #toast{ position:fixed; left:50%; top:14%; transform:translateX(-50%) translateY(-20px); z-index:60; background:linear-gradient(180deg,rgba(20,44,60,.95),rgba(10,20,40,.95)); border:1px solid #2ff0ff; color:#eafffb; font-weight:800; letter-spacing:1.5px; padding:12px 22px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); box-shadow:0 0 20px rgba(47,240,255,.4); text-shadow:0 0 8px rgba(47,240,255,.7); opacity:0; transition:all .35s; pointer-events:none; max-width:80vw; text-align:center; }
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   #flash{ position:fixed; inset:0; z-index:55; background:#fff; opacity:0; pointer-events:none; }
@@ -183,7 +187,7 @@
   <div class="row2"><button class="btn ghost small" id="tutBtn">Tutorial</button></div>
   <div class="row2"><button class="btn ghost small" id="statsBtnMenu">Stats</button><button class="btn ghost small" id="optBtnMenu">Options</button></div>
   <div class="hint">DRAG to fly &amp; auto-fire · HOLD STILL to charge<br>FLICK LEFT / RIGHT to barrel roll</div>
-  <div id="version">v1.9</div>
+  <div id="version">v2.1</div>
 </div>
 
 <div id="levelScreen" class="screen hidden">
@@ -1125,14 +1129,14 @@ const TUT_STEPS=[
   {msg:'Training complete — good luck, pilot!', need:0, cnt:()=>1, spawn:()=>{}, alive:()=>true, last:true}
 ];
 function showTutStep(){ const s=TUT_STEPS[tutStep]; $('tutText').textContent=s.msg; if(s.spawn) s.spawn(); }
-function startTutorial(){ initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings(); tutorial=true; mode='tutorial'; level=1; curMedals=[1e9,1e9,1e9]; loadBiome(1); clearField(); resetShip(); waveQueue=[]; diffMul=1; bossSpawned=false; setScore(0); health=100; elapsed=0; laserLevel=1; shieldTime=0; state='play'; hide('startScreen'); $('hud').classList.add('active'); progressFill.parentElement.style.display='none'; bossWrap.style.display='none'; startMusic(); tutStep=0; tutTimer=0; tutFlags={}; $('tutOverlay').style.display='flex'; showTutStep(); }
-function endTutorial(){ tutorial=false; $('tutOverlay').style.display='none'; state='menu'; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); show('startScreen'); }
+function startTutorial(){ initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings(); tutorial=true; mode='tutorial'; level=1; curMedals=[1e9,1e9,1e9]; loadBiome(1); clearField(); resetShip(); waveQueue=[]; diffMul=1; bossSpawned=false; setScore(0); health=100; elapsed=0; laserLevel=1; shieldTime=0; state='play'; hide('startScreen'); $('hud').classList.add('active'); progressFill.parentElement.style.display='none'; bossWrap.style.display='none'; startMusic(); tutStep=0; tutTimer=0; tutFlags={}; $('tutDone').style.display='none'; $('tutOverlay').style.display='flex'; showTutStep(); }
+function endTutorial(){ tutorial=false; $('tutOverlay').style.display='none'; $('tutDone').style.display='none'; state='menu'; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); show('startScreen'); }
 function updateTutorial(dt){ if(!tutorial) return; tutTimer+=dt; const s=TUT_STEPS[tutStep];
-  if(s.last){ if(tutTimer>2.6) endTutorial(); return; }
+  if(s.last){ if(!tutFlags._doneShown){ tutFlags._doneShown=true; $('tutOverlay').style.display='none'; $('tutDone').style.display='flex'; } return; }
   if(s.cnt()>=s.need){ tutStep++; tutTimer=0; sfx.pickup(); vibrate(20); const ns=TUT_STEPS[tutStep]; $('tutText').textContent=ns.msg; if(ns.spawn) ns.spawn(); return; }
   if(!s.alive() && tutTimer>0.6){ tutTimer=0; s.spawn(); $('tutText').textContent='Almost! Give it another go!'; tutFlags._retryT=1.5; }
   if(tutFlags._retryT){ tutFlags._retryT-=dt; if(tutFlags._retryT<=0){ tutFlags._retryT=0; $('tutText').textContent=s.msg; } } }
-function startLevel(lvl,md){ tutorial=false; $('tutOverlay').style.display='none'; initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings();
+function startLevel(lvl,md){ tutorial=false; $('tutOverlay').style.display='none'; $('tutDone').style.display='none'; initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings();
   mode=md; level=lvl; curMedals=medalsFor(md,lvl); curBest=+(localStorage.getItem(md==='endless'?'swipefox_best_endless':'swipefox_best_l'+lvl)||0); lastRank=0; bestBeaten=false; if(bestBox) bestBox.textContent=curBest>0?('BEST '+curBest):''; if(lvl===1&&md==='campaign'){ runLog=[]; } loadBiome(mode==='endless'?(Math.random()<.5?1:2):lvl);
   setScore(0); health=100; elapsed=0; timeScale=1; hitStop=0; combo=0; comboT=0; laserLevel=1; shieldTime=0; bossSpawned=false; bossDying=0; branch=null; diffMul=(md==='campaign')?(1+(((LEVELS[lvl]&&LEVELS[lvl].diff)||1)-1)*0.6):1; endlessT=0; endlessSpawnT=0; currentT=0; currentPush=0; mistT=0; musicIntensity=1;
   stats.shots=0; stats.hits=0; stats.kills=0; stats.damaged=false;
@@ -1229,7 +1233,7 @@ function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
     const foot= sel? ('<div class="medrow">'+[1,2,3].map(k=> r>=k?MEDAL_SVG(k,18):MEDAL_SVG(0,18)).join('')+'</div>') : '<div class="pm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa4bc" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="1.5" fill="rgba(154,164,188,.15)"/><path d="M8 11 V8 a4 4 0 0 1 8 0 v3"/></svg></div>';
     d.innerHTML=`${planet}<div class="pt">${n.t}</div>${foot}`;
     if(sel) d.onclick=()=>startLevel(n.level,'campaign');
-    if(sel && window._nextStage!=null && n.stage===window._nextStage){ d.classList.add('next'); const tag=document.createElement('div'); tag.className='nexttag'; tag.textContent='NEXT'; d.appendChild(tag); }
+    if(sel && window._nextStage!=null && n.stage===window._nextStage){ d.classList.add('next'); }
     host.appendChild(d); }
   if(window._nextStage!=null){ const nn=MAP_NODES.find(n=>n.stage===window._nextStage && nodeSelectable(n.level)); if(nn) setTimeout(()=>{ const sm=$('solarMap'); sm.scrollLeft=Math.max(0,nn.x-sm.clientWidth/2); },30); }
   setTimeout(()=>{ $('solarMap').scrollLeft=0; },0);
@@ -1238,6 +1242,7 @@ function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
 /* buttons */
 $('playBtn').onclick=()=>{ initAudio(); window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
 $('tutBtn').onclick=()=>startTutorial();
+$('tutContinue').onclick=()=>{ $('tutDone').style.display='none'; tutorial=false; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); state='menu'; window._nextStage=null; buildSolarMap(); show('levelScreen'); };
 function shareCard(){ const s=window._share||{}; const c=document.createElement('canvas'); c.width=600; c.height=340; const x=c.getContext('2d');
   const grad=x.createLinearGradient(0,0,0,340); grad.addColorStop(0,'#1a0a3a'); grad.addColorStop(1,'#3a1a5a'); x.fillStyle=grad; x.fillRect(0,0,600,340);
   x.textAlign='center'; x.fillStyle='#2ff0ff'; x.font='bold 42px sans-serif'; x.fillText('SwipeFox',300,66);
