@@ -137,6 +137,18 @@
   .tutDoneCard{ pointer-events:auto; background:linear-gradient(180deg,rgba(20,44,66,.95),rgba(10,20,40,.95)); border:1px solid #2ff0ff; clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px); box-shadow:0 0 34px rgba(47,240,255,.45); padding:26px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; }
   .tdTitle{ font-family:'Orbitron',sans-serif; font-weight:900; letter-spacing:3px; color:#eafffb; text-shadow:0 0 16px rgba(47,240,255,.9); font-size:22px; }
   .tdSub{ color:#bfe8ff; margin:8px 0 16px; letter-spacing:1px; }
+  #tutBanner{ position:fixed; inset:0; z-index:58; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:0; transition:opacity .4s; }
+  #tutBanner span{ font-family:'Orbitron',sans-serif; font-weight:900; letter-spacing:8px; font-size:min(15vw,84px); color:#eafffb; text-shadow:0 0 26px rgba(47,240,255,.9),0 0 60px rgba(47,240,255,.4); }
+  #tutBanner.show{ opacity:1; }
+  #adBanner{ position:fixed; left:0; right:0; bottom:0; height:56px; z-index:42; display:flex; align-items:center; justify-content:center; background:repeating-linear-gradient(45deg,#15131f,#15131f 12px,#1a1826 12px,#1a1826 24px); border-top:1px dashed rgba(255,255,255,.28); color:rgba(255,255,255,.55); font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:3px; pointer-events:none; }
+  #adBanner.hidden{ display:none; }
+  #adInterstitial{ position:fixed; inset:0; z-index:72; display:none; align-items:center; justify-content:center; background:rgba(4,3,10,.94); }
+  #adInterstitial.show{ display:flex; }
+  .adBox{ width:82%; max-width:360px; height:66vh; max-height:640px; background:repeating-linear-gradient(45deg,#1a1826,#1a1826 16px,#211d30 16px,#211d30 32px); border:2px dashed rgba(47,240,255,.45); border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:26px; gap:10px; }
+  .adTag{ font-family:'Orbitron',sans-serif; font-size:12px; letter-spacing:5px; color:#7dd8ff; }
+  .adMock{ font-family:'Orbitron',sans-serif; font-size:26px; color:#eafffb; letter-spacing:2px; text-shadow:0 0 16px rgba(47,240,255,.5); }
+  .adSub{ font-size:13px; color:rgba(255,255,255,.5); line-height:1.4; max-width:260px; }
+  #adClose{ margin-top:18px; }
   #toast{ position:fixed; left:50%; top:14%; transform:translateX(-50%) translateY(-20px); z-index:60; background:linear-gradient(180deg,rgba(20,44,60,.95),rgba(10,20,40,.95)); border:1px solid #2ff0ff; color:#eafffb; font-weight:800; letter-spacing:1.5px; padding:12px 22px; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); box-shadow:0 0 20px rgba(47,240,255,.4); text-shadow:0 0 8px rgba(47,240,255,.7); opacity:0; transition:all .35s; pointer-events:none; max-width:80vw; text-align:center; }
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   #flash{ position:fixed; inset:0; z-index:55; background:#fff; opacity:0; pointer-events:none; }
@@ -176,6 +188,9 @@
 <div id="screenDark"></div><div id="bossStrobe"></div><div id="bossWarn"><span>WARNING</span></div>
 <div id="tutOverlay"><div id="tutText"></div></div>
 <div id="tutDone"><div class="tutDoneCard"><div class="tdTitle">TRAINING COMPLETE</div><div class="tdSub">You're cleared for duty, pilot.</div><button class="btn small" id="tutContinue">Continue</button></div></div>
+<div id="tutBanner"><span>TUTORIAL</span></div>
+<div id="adBanner">ADVERTISEMENT &nbsp;·&nbsp; 320 × 50 BANNER</div>
+<div id="adInterstitial"><div class="adBox"><div class="adTag">ADVERTISEMENT</div><div class="adMock">FULL-SCREEN AD</div><div class="adSub">Interstitial placeholder — a real ad shows here after each level</div><button id="adClose" class="btn small">Continue</button></div></div>
 <div id="toast"></div>
 <div id="flash"></div>
 <div id="edgeFlash"></div>
@@ -184,9 +199,8 @@
   <div class="sun"></div>
   <div id="logo"><div class="fox">Rift<br>Wing</div></div>
   <button class="btn" id="playBtn">Play</button>
-  <div class="row2"><button class="btn ghost small" id="tutBtn">Tutorial</button></div>
   <div class="row2"><button class="btn ghost small" id="statsBtnMenu">Stats</button><button class="btn ghost small" id="optBtnMenu">Options</button></div>
-  <div id="version">v3.5</div>
+  <div id="version">v3.9</div>
 </div>
 
 <div id="levelScreen" class="screen hidden">
@@ -702,7 +716,7 @@ function spawnBlock(x,w,h,z,d){ const g=new THREE.Group(); const u=g.userData; u
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d||3.2),new THREE.MeshStandardMaterial({color:0x14141e,metalness:.5,roughness:.55,emissive:col,emissiveIntensity:.2})); m.position.y=base+h/2; g.add(m);
   const e=new THREE.Mesh(new THREE.BoxGeometry(w+0.06,h,0.12),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.5,fog:false})); e.position.set(0,base+h/2,(d||3.2)/2+0.06); g.add(e);
   g.position.set(x,0,z); u.bx=x; u.bw=w; u.byTop=base+h; g.traverse(n=>{if(n.isMesh) n.castShadow=false;}); scene.add(g); obstacles.push(g); return g; }
-function spawnWallCanyon(zStart){ zStart=zStart||-230; obstacleBusy=Math.max(obstacleBusy,4.5); for(let i=0;i<6;i++){ const z=zStart-i*30;
+function spawnWallCanyon(zStart){ zStart=zStart||-230; obstacleBusy=Math.max(obstacleBusy,6); for(let i=0;i<6;i++){ const z=zStart-i*45;
     spawnBlock(-(AREA.x+2.2), 3.5+Math.random()*1.6, 9+Math.random()*8, z);
     spawnBlock( (AREA.x+2.2), 3.5+Math.random()*1.6, 9+Math.random()*8, z);
     if(Math.random()<0.55){ spawnBlock((Math.random()-.5)*AREA.x*1.3, 1.6+Math.random()*1.3, 3.5+Math.random()*6, z+15, 2.4); } }
@@ -722,7 +736,7 @@ function gateWallV(divY,side,z,ang){ const g=new THREE.Group(); const u=g.userDa
   g.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x14141e,metalness:.5,roughness:.5,emissive:col,emissiveIntensity:.22})));
   const e=new THREE.Mesh(new THREE.BoxGeometry(w,0.35,2.1),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.7,fog:false})); e.position.y=side==='B'?-0.17:0.17; g.add(e); u.edge=e;
   g.position.set(0,divY,z); g.rotation.x=ang||0; g.traverse(n=>{if(n.isMesh)n.castShadow=false;}); scene.add(g); obstacles.push(g); }
-function spawnSlalom(zStart){ zStart=zStart||-250; const n=4+((Math.random()*3)|0); const SP=54, OFF=2.4, LEAN=0.55, cy=(AREA.yMin+AREA.yMax)/2;
+function spawnSlalom(zStart){ zStart=zStart||-250; const n=4+((Math.random()*3)|0); const SP=81, OFF=2.0, LEAN=0.55, cy=(AREA.yMin+AREA.yMax)/2;
   obstacleBusy=Math.max(obstacleBusy, (n*SP)/FORWARD_SPEED+2.5); slalomT=obstacleBusy; slalomClean=true;
   const gates=[]; let hSide=Math.random()<.5?'L':'R', vSide=Math.random()<.5?'T':'B';
   for(let i=0;i<n;i++){ if(Math.random()<0.38){ gates.push({axis:'V',side:vSide}); vSide=(vSide==='T')?'B':'T'; } else { gates.push({axis:'H',side:hSide}); hSide=(hSide==='L')?'R':'L'; } }
@@ -1170,6 +1184,12 @@ function onMove(e){ if(!pointer.down||state!=='play') return; const t=e.touches?
 function onUp(){ if(!pointer.down) return; const wasCharged=pointer.chargeProg>=1; pointer.down=false; pointer.charging=false; pointer.fullyCharged=false; pointer.chargeLatch=false; pointer.chargeT=0; if(wasCharged){ fire(true); vibrate(18); if(tutorial) tutFlags.charged=true; } stopChargeSound(); lockMarker.visible=false; lockTarget=null; pointer.chargeProg=0; pointer.stillT=0; }
 addEventListener('touchstart',onDown,{passive:true}); addEventListener('touchmove',onMove,{passive:true}); addEventListener('touchend',onUp);
 addEventListener('mousedown',onDown); addEventListener('mousemove',onMove); addEventListener('mouseup',onUp);
+// mobile: reliably unlock/resume the audio context on any user gesture
+function unlockAudio(){ if(!AC) initAudio(); if(AC && AC.state==='suspended') AC.resume(); }
+addEventListener('touchend',unlockAudio); addEventListener('pointerdown',unlockAudio); addEventListener('mousedown',unlockAudio);
+// mobile: auto-pause when backgrounded (screen lock, app switch, incoming call)
+document.addEventListener('visibilitychange',()=>{ if(document.hidden && state==='play') pauseGame(); });
+addEventListener('blur',()=>{ if(state==='play') pauseGame(); });
 
 /* ================= FLOW ================= */
 function hide(id){ $(id).classList.add('hidden'); } function show(id){ $(id).classList.remove('hidden'); }
@@ -1185,7 +1205,7 @@ const TUT_STEPS=[
   {msg:'Training complete — good luck, pilot!', need:0, cnt:()=>1, spawn:()=>{}, alive:()=>true, last:true}
 ];
 function showTutStep(){ const s=TUT_STEPS[tutStep]; $('tutText').textContent=s.msg; if(s.spawn) s.spawn(); }
-function startTutorial(){ initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings(); tutorial=true; mode='tutorial'; level=1; curMedals=[1e9,1e9,1e9]; loadBiome(1); clearField(); resetShip(); waveQueue=[]; diffMul=1; bossSpawned=false; setScore(0); health=100; elapsed=0; laserLevel=1; shieldTime=0; state='play'; hide('startScreen'); $('hud').classList.add('active'); progressFill.parentElement.style.display='none'; bossWrap.style.display='none'; startMusic(); tutStep=0; tutTimer=0; tutFlags={}; $('tutDone').style.display='none'; $('tutOverlay').style.display='flex'; showTutStep(); }
+function startTutorial(){ initAudio(); if(AC&&AC.state==='suspended') AC.resume(); applySettings(); tutorial=true; mode='tutorial'; level=1; curMedals=[1e9,1e9,1e9]; loadBiome(1); clearField(); resetShip(); waveQueue=[]; diffMul=1; bossSpawned=false; setScore(0); health=100; elapsed=0; laserLevel=1; shieldTime=0; state='play'; hide('startScreen'); $('hud').classList.add('active'); progressFill.parentElement.style.display='none'; bossWrap.style.display='none'; startMusic(); tutStep=0; tutTimer=0; tutFlags={}; $('tutDone').style.display='none'; $('tutOverlay').style.display='flex'; { const tb=$('tutBanner'); if(tb){ tb.classList.add('show'); setTimeout(()=>tb.classList.remove('show'),1900); } } showTutStep(); }
 function endTutorial(){ tutorial=false; $('tutOverlay').style.display='none'; $('tutDone').style.display='none'; state='menu'; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); show('startScreen'); }
 function updateTutorial(dt){ if(!tutorial) return; tutTimer+=dt; const s=TUT_STEPS[tutStep];
   if(s.last){ if(!tutFlags._doneShown){ tutFlags._doneShown=true; $('tutOverlay').style.display='none'; $('tutDone').style.display='flex'; } return; }
@@ -1247,7 +1267,8 @@ function endGame(win){ state='end'; stopMusic(); stopChargeSound(); $('hud').cla
   const ne=$('nameEntry'), bd=$('board');
   if(mode==='endless'){ const board=JSON.parse(localStorage.getItem('swipefox_board')||'[]'); const low=board.length<5?0:board[board.length-1].score; if(final>low){ ne.style.display='block'; ne.dataset.score=final; } else ne.style.display='none'; renderBoard(board,-1); bd.style.display='block'; }
   else { ne.style.display='none'; bd.style.display='none'; }
-  show('endScreen'); }
+  show('endScreen');
+  if(ADS && win){ const ai=$('adInterstitial'); if(ai) ai.classList.add('show'); } }
 function renderBoard(board,hi){ const bd=$('board'); bd.innerHTML='<div class="row" style="opacity:.7"><span>RANK · NAME</span><span>SCORE</span></div>'+
   board.slice(0,5).map((e,i)=>`<div class="row"><span>${i+1}. ${e.name}</span><span>${i===hi?'<b>':''}${String(e.score).padStart(6,'0')}${i===hi?'</b>':''}</span></div>`).join('') || '<div class="row">No scores yet</div>'; }
 function commitScore(){ const ne=$('nameEntry'); if(ne.style.display==='none'||!ne.dataset.score) return; const nm=($('initials').value||'FOX').toUpperCase().slice(0,3);
@@ -1301,8 +1322,10 @@ function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
 }
 
 /* buttons */
-$('playBtn').onclick=()=>{ initAudio(); window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
-$('tutBtn').onclick=()=>startTutorial();
+const ADS=true; // placeholder ads (remove/replace with real ads for store build)
+if(!ADS && $('adBanner')) $('adBanner').classList.add('hidden');
+$('adClose').onclick=()=>{ $('adInterstitial').classList.remove('show'); };
+$('playBtn').onclick=()=>{ initAudio(); if(!localStorage.getItem('swipefox_played')){ try{ localStorage.setItem('swipefox_played','1'); }catch(e){} startTutorial(); return; } window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
 $('tutContinue').onclick=()=>{ $('tutDone').style.display='none'; tutorial=false; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); state='menu'; window._nextStage=null; buildSolarMap(); show('levelScreen'); };
 function shareCard(){ const s=window._share||{}; const c=document.createElement('canvas'); c.width=600; c.height=340; const x=c.getContext('2d');
   const grad=x.createLinearGradient(0,0,0,340); grad.addColorStop(0,'#1a0a3a'); grad.addColorStop(1,'#3a1a5a'); x.fillStyle=grad; x.fillRect(0,0,600,340);
@@ -1549,13 +1572,22 @@ function updateObstacles(dt){ for(let i=obstacles.length-1;i>=0;i--){ const o=ob
   if(o.position.z>28){ purge(o,false); scene.remove(o); obstacles.splice(i,1); } } }
 
 function updateEnemyBullets(dt){ for(let i=ebullets.length-1;i>=0;i--){ const b=ebullets[i]; b.position.addScaledVector(b.userData.dir,b.userData.speed*dt); b.userData.life-=dt;
+  { const wo=shotHitsWall(b.position.x,b.position.y,b.position.z); if(wo){ tinySpark(b.position,pal.ebullet); purge(b,false); scene.remove(b); ebullets.splice(i,1); continue; } }
   if(tutorial && invuln>0 && b.position.distanceTo(ship.position)<3.2){ tutFlags.deflect=(tutFlags.deflect||0)+1; explode(b.position,false,0x66ffcc); sfx.hit(); purge(b,false); scene.remove(b); ebullets.splice(i,1); continue; }
   if(b.position.distanceTo(ship.position)<1.4){ if(invuln>0||shieldTime>0){ explode(b.position,false,0x66ffcc); sfx.hit(); } else { explode(b.position,false,pal.ebullet); damage(9); } purge(b,false); scene.remove(b); ebullets.splice(i,1); continue; }
   if(b.userData.life<=0){ purge(b,false); scene.remove(b); ebullets.splice(i,1); } } }
 
+function shotHitsWall(x,y,z){ for(let k=0;k<obstacles.length;k++){ const o=obstacles[k],u=o.userData; if(Math.abs(o.position.z-z)>2.4) continue;
+    if(u.gate){ if(u.gateSide==='L'? x<u.divX-0.15 : x>u.divX+0.15) return o; }
+    else if(u.gateV){ if(u.gateSide==='B'? y<u.divY-0.15 : y>u.divY+0.15) return o; }
+    else if(u.box){ if(Math.abs(x-u.bx)<u.bw/2 && y<u.byTop) return o; }
+    else if(u.wall){ if(!(Math.abs(x-u.gx)<u.gapW/2 && Math.abs(y-u.gy)<u.gapH/2)) return o; }
+    else if(u.barrier){ if(u.vert){ if(Math.abs(x-u.bx)<0.9 && y>u.byMin && y<u.byMax) return o; } else { if(Math.abs(y-u.by)<0.9 && x>u.bxMin && x<u.bxMax) return o; } }
+  } return null; }
 function updateLasers(dt){ for(let i=lasers.length-1;i>=0;i--){ const l=lasers[i],u=l.userData; const sp=u.charged?70:120;
   if(u.homing && validTarget(u.homing)){ const tp=targetPos(u.homing); const d=new THREE.Vector3().copy(tp).sub(l.position).normalize(); u.dir.lerp(d,0.22).normalize(); }
   l.position.addScaledVector(u.dir,sp*dt);
+  { const wo=shotHitsWall(l.position.x,l.position.y,l.position.z); if(wo){ tinySpark(l.position,u.charged?0x8fd0ff:curLaserColor); if(u.tracks) retLock=null; scene.remove(l); lasers.splice(i,1); continue; } }
   if(!u.charged){ l.lookAt(l.position.clone().add(u.dir)); l.rotateX(Math.PI/2); if(u.lvl>=2 && Math.random()<(u.lvl>=3?0.35:0.15)) tinySpark(l.position,u.col); }
   else { if(u.r1) u.r1.rotation.z+=dt*5; if(u.r2) u.r2.rotation.y+=dt*6; if(u.spikes) u.spikes.rotation.z-=dt*3; if(u.core) u.core.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.18); l.rotation.z+=dt*2; if(Math.random()<0.6) tinySpark(l.position,0x9fe0ff); }
   u.life-=dt; let done=false; const hitR=u.charged?1.4:0.9;
@@ -1595,6 +1627,8 @@ function bossHit(charged,pos){ const u=boss.userData; let hit=false;
 requestAnimationFrame(tick);
 addEventListener('resize',()=>{ camera.aspect=W()/H(); camera.updateProjectionMatrix(); renderer.setSize(W(),H()); });
 addEventListener('keydown',e=>{ if(e.key==='p'||e.key==='Escape'){ if(state==='play') pauseGame(); else if(state==='pause') resumeGame(); } });
+// first launch → straight into the tutorial
+
 </script>
 </body>
 </html>
