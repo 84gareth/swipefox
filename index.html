@@ -48,6 +48,24 @@
   .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:linear-gradient(180deg,#3a1f6e 0%, #a63d8f 42%, #ff7e6b 74%, #ffd9a8 100%); z-index:10; overflow:hidden; }
   .screen.night { background:linear-gradient(180deg,#0a0a30 0%, #1a1050 40%, #3a1a5a 70%, #6a2a6a 100%); }
+  .screen.space{ background:
+    radial-gradient(ellipse 65% 55% at 22% 12%, rgba(132,56,182,.40), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 82% 78%, rgba(40,132,202,.34), transparent 55%),
+    radial-gradient(ellipse 40% 30% at 65% 40%, rgba(255,94,156,.14), transparent 60%),
+    radial-gradient(circle at 50% 42%, #170d38 0%, #0b0620 55%, #050307 100%); }
+  .screen.space .sun{ display:none; }
+  .screen.space::before{ content:""; position:absolute; inset:0; left:0; right:0; top:0; bottom:0; height:auto; transform:none; opacity:.92; -webkit-mask:none; mask:none;
+    background:
+     radial-gradient(1.6px 1.6px at 25px 35px,#fff,transparent),
+     radial-gradient(1.3px 1.3px at 160px 95px,#cfe8ff,transparent),
+     radial-gradient(1px 1px at 90px 150px,#fff,transparent),
+     radial-gradient(1.2px 1.2px at 188px 42px,#fff,transparent),
+     radial-gradient(1px 1px at 48px 178px,#b8d0ff,transparent),
+     radial-gradient(1.6px 1.6px at 120px 18px,#fff,transparent),
+     radial-gradient(1px 1px at 32px 108px,#fff,transparent),
+     radial-gradient(1.3px 1.3px at 150px 160px,#ffe6f2,transparent);
+    background-repeat:repeat; background-size:210px 210px; animation:twinkle 6.5s ease-in-out infinite; }
+  @keyframes twinkle{ 0%,100%{opacity:.72} 50%{opacity:1} }
   .screen::before{ content:""; position:absolute; left:-10%; right:-10%; bottom:0; height:44%;
     background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(43,224,208,.5) 46px 48px), repeating-linear-gradient(0deg, transparent 0 40px, rgba(43,224,208,.35) 40px 42px);
     transform:perspective(300px) rotateX(70deg); transform-origin:bottom; opacity:.7; mask-image:linear-gradient(180deg,transparent,#000 40%); }
@@ -195,15 +213,16 @@
 <div id="flash"></div>
 <div id="edgeFlash"></div>
 
-<div id="startScreen" class="screen">
+<div id="startScreen" class="screen space">
   <div class="sun"></div>
   <div id="logo"><div class="fox">Rift<br>Wing</div></div>
-  <button class="btn" id="playBtn">Play</button>
+  <button class="btn" id="playBtn">Campaign</button>
+  <div class="row2"><button class="btn ghost small" id="hsBtn">High Scores</button></div>
   <div class="row2"><button class="btn ghost small" id="statsBtnMenu">Stats</button><button class="btn ghost small" id="optBtnMenu">Options</button></div>
-  <div id="version">v3.9</div>
+  <div id="version">v4.1</div>
 </div>
 
-<div id="levelScreen" class="screen hidden">
+<div id="levelScreen" class="screen space hidden">
   <div class="bigtitle">Select Mission</div>
   <div id="mapInfo" style="z-index:2;color:#9fe8ff;font-weight:700;letter-spacing:1px;font-size:13px;margin-bottom:6px;text-shadow:0 0 8px rgba(47,240,255,.5);"></div>
   <div id="solarMap"><div id="solarInner"><svg id="solarEdges" viewBox="0 0 1280 360" preserveAspectRatio="none"></svg><div id="solarNodes"></div></div></div>
@@ -1234,6 +1253,7 @@ function endGame(win){ state='end'; stopMusic(); stopChargeSound(); $('hud').cla
   if(win && mode==='campaign' && level===1) localStorage.setItem('swipefox_unlock2','1');
   const total=careerTotal(); const isRecord=final>prevBest;
   const thr=medalsFor(mode,level); const rank=win?medalRank(final,thr):0;
+  if(win && (mode==='campaign'||mode==='rerun')) markCleared(level);
   if(win && mode==='campaign'){
     if(runLog.length && runLog[runLog.length-1].lv===level) runLog.pop();
     runLog.push({lv:level,hits:final,medal:rank});
@@ -1292,12 +1312,15 @@ const hx=v=>'#'+(v>>>0).toString(16).padStart(6,'0');
 const planetBg=lv=>{ const B=LEVELS[lv]; return `radial-gradient(circle at 34% 30%, ${hx(B.rimB)}, ${hx(B.rimA)} 52%, ${hx(B.fog[0])} 100%)`; };
 function getReached(){ return +(localStorage.getItem('swipefox_reached')||0); }
 function getUnlocked(){ try{ return new Set(JSON.parse(localStorage.getItem('swipefox_unlocked')||'[]')); }catch(e){ return new Set(); } }
-function nodeSelectable(lv){ if(settings.debug) return true; if(STAGE[lv]>getReached()) return false; return DEFAULTPATH.includes(lv)||getUnlocked().has(lv); }
+let runMode='campaign';
+function getCleared(){ try{ return new Set(JSON.parse(localStorage.getItem('swipefox_cleared')||'[]')); }catch(e){ return new Set(); } }
+function markCleared(lv){ try{ const c=getCleared(); c.add(lv); localStorage.setItem('swipefox_cleared',JSON.stringify([...c])); }catch(e){} }
+function nodeSelectable(lv){ if(settings.debug) return true; if(runMode==='rerun') return getCleared().has(lv)||(STAGE[lv]<getReached()); if(STAGE[lv]>getReached()) return false; return DEFAULTPATH.includes(lv)||getUnlocked().has(lv); }
 function MEDAL_SVG(rank,size){ if(!rank) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><circle cx="12" cy="14" r="6.5" fill="none" stroke="#4a5470" stroke-width="2"/></svg>`;
   const c=[null,['#a8672e','#e8a066'],['#8a8fa0','#e2e6f0'],['#c88a10','#ffe14d']][rank];
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M7 1 L11 1 L10 7 L8 7 Z" fill="${c[0]}"/><path d="M17 1 L13 1 L14 7 L16 7 Z" fill="${c[0]}"/><circle cx="12" cy="15" r="6.5" fill="${c[0]}" stroke="${c[1]}" stroke-width="1.5"/><circle cx="12" cy="15" r="3.6" fill="${c[1]}"/></svg>`; }
 function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
-  { const un=getUnlocked(); const unlockedCount=6+un.size; const mi=$('mapInfo'); if(mi) mi.innerHTML=`CAREER TOTAL <b style="color:#ffd24a">${careerTotal()}</b> HITS &nbsp;·&nbsp; ROUTES UNLOCKED <b>${unlockedCount}/15</b>${settings.debug?' &nbsp;·&nbsp; <span style="color:#7dff9a">ALL LEVELS UNLOCKED</span>':''}`; }
+  { const un=getUnlocked(); const unlockedCount=6+un.size; const mi=$('mapInfo'); if(mi) mi.innerHTML = runMode==='rerun' ? `<b style="color:#7dff9a">HIGH-SCORE MODE</b> &nbsp;·&nbsp; replay a cleared level to beat your best` : `CAREER TOTAL <b style="color:#ffd24a">${careerTotal()}</b> HITS &nbsp;·&nbsp; ROUTES UNLOCKED <b>${unlockedCount}/15</b>${settings.debug?' &nbsp;·&nbsp; <span style="color:#7dff9a">ALL LEVELS UNLOCKED</span>':''}`; }
   const svg=$('solarEdges');
   let bg='<defs><radialGradient id="starGlow"><stop offset="0%" stop-color="#ff6a3a" stop-opacity="0.95"/><stop offset="55%" stop-color="#c0300a" stop-opacity="0.35"/><stop offset="100%" stop-color="#c0300a" stop-opacity="0"/></radialGradient></defs>';
   for(let i=0;i<150;i++){ bg+=`<circle cx="${(Math.random()*1280)|0}" cy="${(Math.random()*360)|0}" r="${Math.random()<0.85?0.8:1.7}" fill="#fff" opacity="${(0.25+Math.random()*0.6).toFixed(2)}"/>`; }
@@ -1314,7 +1337,7 @@ function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
     const planet= `<div class="planet" style="width:${n.sz}px;height:${n.sz}px;background:${planetBg(n.level)}; --pg:${hx(LEVELS[n.level].rimA)};">${n.ringed?'<div class="pring"></div>':''}<div class="pshine"></div></div>`;
     const foot= sel? ('<div class="medrow">'+[1,2,3].map(k=> r>=k?MEDAL_SVG(k,18):MEDAL_SVG(0,18)).join('')+'</div>') : '<div class="pm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa4bc" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="1.5" fill="rgba(154,164,188,.15)"/><path d="M8 11 V8 a4 4 0 0 1 8 0 v3"/></svg></div>';
     d.innerHTML=`${planet}<div class="pt">${n.t}</div>${foot}`;
-    if(sel) d.onclick=()=>startLevel(n.level,'campaign');
+    if(sel) d.onclick=()=>startLevel(n.level, runMode==='rerun'?'rerun':'campaign');
     if(sel && window._nextStage!=null && n.stage===window._nextStage){ d.classList.add('next'); }
     host.appendChild(d); }
   if(window._nextStage!=null){ const nn=MAP_NODES.find(n=>n.stage===window._nextStage && nodeSelectable(n.level)); if(nn) setTimeout(()=>{ const sm=$('solarMap'); sm.scrollLeft=Math.max(0,nn.x-sm.clientWidth/2); },30); }
@@ -1325,7 +1348,8 @@ function buildSolarMap(){ const cur=localStorage.getItem('swipefox_node')||'l1';
 const ADS=true; // placeholder ads (remove/replace with real ads for store build)
 if(!ADS && $('adBanner')) $('adBanner').classList.add('hidden');
 $('adClose').onclick=()=>{ $('adInterstitial').classList.remove('show'); };
-$('playBtn').onclick=()=>{ initAudio(); if(!localStorage.getItem('swipefox_played')){ try{ localStorage.setItem('swipefox_played','1'); }catch(e){} startTutorial(); return; } window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
+$('playBtn').onclick=()=>{ initAudio(); runMode='campaign'; if(!localStorage.getItem('swipefox_played')){ try{ localStorage.setItem('swipefox_played','1'); }catch(e){} startTutorial(); return; } window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
+$('hsBtn').onclick=()=>{ initAudio(); runMode='rerun'; window._nextStage=null; buildSolarMap(); hide('startScreen'); show('levelScreen'); };
 $('tutContinue').onclick=()=>{ $('tutDone').style.display='none'; tutorial=false; stopMusic(); stopChargeSound(); $('hud').classList.remove('active'); clearField(); state='menu'; window._nextStage=null; buildSolarMap(); show('levelScreen'); };
 function shareCard(){ const s=window._share||{}; const c=document.createElement('canvas'); c.width=600; c.height=340; const x=c.getContext('2d');
   const grad=x.createLinearGradient(0,0,0,340); grad.addColorStop(0,'#1a0a3a'); grad.addColorStop(1,'#3a1a5a'); x.fillStyle=grad; x.fillRect(0,0,600,340);
